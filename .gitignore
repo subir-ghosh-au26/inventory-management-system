@@ -1,0 +1,5 @@
+/admin-pane/node_modules
+/backend/node_modules
+
+/admin-pane/.env
+/backend/.env
