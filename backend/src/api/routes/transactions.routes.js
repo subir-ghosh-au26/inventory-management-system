@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../../config/db');
-const { authenticateToken, isAdmin } = require('../../middleware/auth.middleware');
+const { authenticateToken } = require('../../middleware/auth.middleware');
 
 // POST /api/transactions/stock-in - Add stock to an existing item (Admin only)
-router.post('/stock-in', authenticateToken, isAdmin, async (req, res) => {
+router.post('/stock-in', authenticateToken, async (req, res) => {
     const { itemId, quantity, details } = req.body;
     const userId = req.user.id;
     const quantityToAdd = parseInt(quantity, 10);
@@ -57,7 +57,7 @@ router.post('/stock-in', authenticateToken, isAdmin, async (req, res) => {
 });
 
 // GET /api/transactions - Get a log of all transactions
-router.get('/', authenticateToken, isAdmin, async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
     const { page = 1, limit = 15, type, itemId } = req.query;
     const offset = (page - 1) * limit;
 
@@ -106,6 +106,57 @@ router.get('/', authenticateToken, isAdmin, async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: 'Server error fetching transaction log.' });
     }
+});
+
+// --- HELPER FUNCTION FOR TRANSACTIONS ---
+const executeTransaction = async (res, { itemId, userId, quantity, type, details }) => {
+    const quantityChange = type === 'DISTRIBUTION' ? -Math.abs(quantity) : Math.abs(quantity);
+
+    const client = await db.getClient();
+    try {
+        await client.query('BEGIN');
+
+        // Check for sufficient stock before distribution
+        if (type === 'DISTRIBUTION') {
+            const stockCheck = await client.query('SELECT current_quantity FROM items WHERE id = $1 FOR UPDATE', [itemId]);
+            if (stockCheck.rows.length === 0) throw new Error('Item not found.');
+            if (stockCheck.rows[0].current_quantity < Math.abs(quantityChange)) {
+                throw new Error('Insufficient stock for distribution.');
+            }
+        }
+
+        // 1. Update the item's quantity
+        const updateQuery = 'UPDATE items SET current_quantity = current_quantity + $1 WHERE id = $2 RETURNING *';
+        const updatedItem = await client.query(updateQuery, [quantityChange, itemId]);
+        if (updatedItem.rows.length === 0 && type !== 'DISTRIBUTION') throw new Error('Item not found.');
+
+        // 2. Create the transaction log
+        const logQuery = 'INSERT INTO transactions (item_id, user_id, transaction_type, quantity_change, details) VALUES ($1, $2, $3, $4, $5)';
+        await client.query(logQuery, [itemId, userId, type, quantityChange, details]);
+
+        await client.query('COMMIT');
+        res.status(200).json(updatedItem.rows[0]);
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error(`Transaction failed for type ${type}:`, error);
+        res.status(error.message.includes('Insufficient stock') ? 409 : 500).json({ message: error.message || 'Server error during transaction.' });
+    } finally {
+        client.release();
+    }
+};
+
+// POST /api/transactions/distribute - Office Boy distributes an item
+router.post('/distribute', authenticateToken, async (req, res) => {
+    const { itemId, quantity, distributedTo } = req.body;
+    const details = { distributed_to: distributedTo };
+    await executeTransaction(res, { itemId, userId: req.user.id, quantity, type: 'DISTRIBUTION', details });
+});
+
+// POST /api/transactions/return - Office Boy processes a return
+router.post('/return', authenticateToken, async (req, res) => {
+    const { itemId, quantity, returnedFrom, reason, notes } = req.body;
+    const details = { returned_from: returnedFrom, reason, notes };
+    await executeTransaction(res, { itemId, userId: req.user.id, quantity, type: 'RETURN', details });
 });
 
 module.exports = router;
