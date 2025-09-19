@@ -147,16 +147,85 @@ const executeTransaction = async (res, { itemId, userId, quantity, type, details
 
 // POST /api/transactions/distribute - Office Boy distributes an item
 router.post('/distribute', authenticateToken, async (req, res) => {
-    const { itemId, quantity, distributedTo } = req.body;
-    const details = { distributed_to: distributedTo };
-    await executeTransaction(res, { itemId, userId: req.user.id, quantity, type: 'DISTRIBUTION', details });
+    // Note: We don't check for isAdmin here, any authenticated user can distribute
+    const { itemId, quantity, details } = req.body;
+    const userId = req.user.id;
+    const quantityToDistribute = parseInt(quantity, 10);
+
+    if (!itemId || !quantityToDistribute || quantityToDistribute <= 0) {
+        return res.status(400).json({ message: 'Item ID and a valid positive quantity are required.' });
+    }
+
+    const client = await db.getClient();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Check for sufficient stock and update the item's quantity in one atomic operation
+        const updateQuery = `
+            UPDATE items SET current_quantity = current_quantity - $1
+            WHERE id = $2 AND current_quantity >= $1
+            RETURNING *;
+        `;
+        const updatedItemResult = await client.query(updateQuery, [quantityToDistribute, itemId]);
+
+        if (updatedItemResult.rows.length === 0) {
+            // This means either the item doesn't exist or stock is insufficient
+            throw new Error('Item not found or insufficient stock.');
+        }
+
+        // 2. Create the transaction log entry
+        const logQuery = `
+            INSERT INTO transactions (item_id, user_id, transaction_type, quantity_change, details)
+            VALUES ($1, $2, 'DISTRIBUTION', $3, $4);
+        `;
+        // We store the negative value to represent a decrease
+        await client.query(logQuery, [itemId, userId, -quantityToDistribute, details]);
+
+        await client.query('COMMIT');
+        res.status(200).json({ message: 'Item distributed successfully.' });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: error.message || 'Server error during distribution.' });
+    } finally {
+        client.release();
+    }
 });
 
 // POST /api/transactions/return - Office Boy processes a return
 router.post('/return', authenticateToken, async (req, res) => {
-    const { itemId, quantity, returnedFrom, reason, notes } = req.body;
-    const details = { returned_from: returnedFrom, reason, notes };
-    await executeTransaction(res, { itemId, userId: req.user.id, quantity, type: 'RETURN', details });
+    const { itemId, quantity, details } = req.body;
+    const userId = req.user.id;
+    const quantityToReturn = parseInt(quantity, 10);
+
+    if (!itemId || !quantityToReturn || quantityToReturn <= 0) {
+        return res.status(400).json({ message: 'Item ID and a valid positive quantity are required.' });
+    }
+
+    const client = await db.getClient();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Update the item's quantity
+        const updateQuery = `UPDATE items SET current_quantity = current_quantity + $1 WHERE id = $2`;
+        await client.query(updateQuery, [quantityToReturn, itemId]);
+
+        // 2. Create the transaction log entry
+        const logQuery = `
+            INSERT INTO transactions (item_id, user_id, transaction_type, quantity_change, details)
+            VALUES ($1, $2, 'RETURN', $3, $4);
+        `;
+        await client.query(logQuery, [itemId, userId, quantityToReturn, details]);
+
+        await client.query('COMMIT');
+        res.status(200).json({ message: 'Item return processed successfully.' });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Server error during return processing.' });
+    } finally {
+        client.release();
+    }
 });
 
 module.exports = router;
