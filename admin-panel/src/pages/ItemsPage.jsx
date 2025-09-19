@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { getItems, createItem, updateItem, deleteItem, addStock } from '../features/items/itemSlice';
 import { getCategories } from '../features/categories/categorySlice';
 import { QRCodeSVG as QRCode } from 'qrcode.react';
@@ -14,6 +15,7 @@ import QrCodeIcon from '@mui/icons-material/QrCode';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PrintIcon from '@mui/icons-material/Print';
+import HistoryIcon from '@mui/icons-material/History';
 
 // Reusable style object for all modals
 const style = {
@@ -32,6 +34,7 @@ const style = {
 
 const ItemsPage = () => {
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const { items, isLoading } = useSelector((state) => state.items);
     const { categories } = useSelector((state) => state.categories);
 
@@ -76,6 +79,11 @@ const ItemsPage = () => {
             setQuantityToAdd(1);
         }
         modalSetter(true);
+    };
+
+    const handleViewHistory = (item) => {
+        // This navigates to the transactions page and adds a URL parameter
+        navigate(`/transactions?itemId=${item.id}&itemName=${encodeURIComponent(item.name)}`);
     };
 
     const handleCloseAll = () => {
@@ -139,7 +147,6 @@ const ItemsPage = () => {
                 </Box>
             </Modal>
 
-            {/* EDIT & QR MODALS (conditionally rendered to ensure currentItem exists) */}
             {currentItem && <>
                 <Modal open={editModalOpen} onClose={handleCloseAll}>
                     <Box sx={style} component="form" onSubmit={(e) => handleSubmit(e, updateItem, currentItem)}>
@@ -170,7 +177,7 @@ const ItemsPage = () => {
                         <Typography variant="h6" component="h2" align="center">{currentItem.name}</Typography>
                         <Typography variant="body2" align="center" gutterBottom>SKU: {currentItem.sku}</Typography>
                         <Box sx={{ textAlign: 'center', my: 2 }}>
-                            <QRCode value={currentItem.sku} size={256} includeMargin={true} />
+                            <QRCode value={currentItem.sku} size={256} marginSize={true} />
                         </Box>
                         <Button onClick={handlePrint} variant="contained" startIcon={<PrintIcon />} fullWidth className="no-print">Print QR Code</Button>
                     </Box>
@@ -198,13 +205,16 @@ const ItemsPage = () => {
                     <TableBody>
                         {isLoading ? <TableRow><TableCell colSpan={5} align="center"><CircularProgress /></TableCell></TableRow> :
                             items.map((item) => (
-                                <TableRow key={item.id} hover sx={{ backgroundColor: item.current_quantity <= item.low_stock_threshold ? '#ffebee' : 'inherit' }}>
+                                <TableRow key={item.id} hover sx={{ backgroundColor: item.current_quantity <= item.low_stock_threshold ? '#ebabb5ff' : 'inherit' }}>
                                     <TableCell>{item.sku}</TableCell>
                                     <TableCell>{item.name}</TableCell>
                                     <TableCell>{item.category_name || 'N/A'}</TableCell>
                                     <TableCell align="right">{item.current_quantity}</TableCell>
                                     <TableCell align="center">
                                         <IconButton size="small" title="Add Stock" onClick={() => handleOpenModal(setStockModalOpen, item)}><AddShoppingCartIcon fontSize="small" /></IconButton>
+                                        <IconButton size="small" title="View History" onClick={() => handleViewHistory(item)}>
+                                            <HistoryIcon fontSize="small" />
+                                        </IconButton>
                                         <IconButton size="small" title="Generate QR" onClick={() => handleOpenModal(setQrModalOpen, item)}><QrCodeIcon fontSize="small" /></IconButton>
                                         <IconButton size="small" title="Edit" onClick={() => handleOpenModal(setEditModalOpen, item)}><EditIcon fontSize="small" /></IconButton>
                                         <IconButton size="small" title="Delete" onClick={() => handleOpenModal(setDeleteDialogOpen, item)}><DeleteIcon fontSize="small" color="error" /></IconButton>

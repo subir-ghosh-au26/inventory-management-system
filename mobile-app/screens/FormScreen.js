@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Button, TextInput, Text, Title, ActivityIndicator, HelperText } from 'react-native-paper';
 import { getItemBySku, distributeItem, returnItem } from '../api/inventory';
-import { Picker } from '@react-native-picker/picker'; // You might need to install this: npm install @react-native-picker/picker
+import { Picker } from '@react-native-picker/picker';
+import Toast from 'react-native-toast-message';
 
 const FormScreen = ({ route, navigation }) => {
     const { sku, action } = route.params;
@@ -43,6 +44,11 @@ const FormScreen = ({ route, navigation }) => {
             return;
         }
 
+        if ((action === 'distribute' && !distributedTo.trim()) || (action === 'return' && !returnedFrom.trim())) {
+            Alert.alert('Invalid Input', 'The "Distribute To / Returned From " field cannot be empty.');
+            return; // Stop the function here
+        }
+
         setSubmitting(true);
         try {
             if (action === 'distribute') {
@@ -52,7 +58,11 @@ const FormScreen = ({ route, navigation }) => {
                     details: { distributed_to: distributedTo, notes: notes },
                 };
                 await distributeItem(data);
-                Alert.alert('Success', 'Item distributed successfully!');
+                Toast.show({
+                    type: 'success',
+                    text1: 'Success',
+                    text2: 'Item distributed successfully!'
+                });
             } else { // action is 'return'
                 const data = {
                     itemId: item.id,
@@ -60,12 +70,20 @@ const FormScreen = ({ route, navigation }) => {
                     details: { returned_from: returnedFrom, reason: returnReason, notes: notes },
                 };
                 await returnItem(data);
-                Alert.alert('Success', 'Item return processed successfully!');
+                Toast.show({
+                    type: 'success',
+                    text1: 'Success',
+                    text2: 'Item return processed successfully!'
+                });
             }
             navigation.navigate('Home'); // Go back to home screen on success
         } catch (error) {
             const errorMessage = error.response?.data?.message || 'An unexpected error occurred.';
-            Alert.alert('Submission Failed', errorMessage);
+            Toast.show({
+                type: 'error',
+                text1: 'Submission Failed',
+                text2: errorMessage
+            });
         } finally {
             setSubmitting(false);
         }

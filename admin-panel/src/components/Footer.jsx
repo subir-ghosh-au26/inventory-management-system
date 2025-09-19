@@ -24,7 +24,7 @@ const Footer = () => {
             <Container maxWidth="lg">
                 <Typography variant="body2" color="text.secondary" align="center">
                     {'Copyright © '}
-                    <Link color="inherit" href="#">
+                    <Link color="inherit" href="https://portfolio-1-five-eosin.vercel.app/" target="_blank">
                         Subir Ghosh
                     </Link>{' '}
                     {new Date().getFullYear()}

@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 
 const initialState = {
     items: [],
+    lowStockItems: [],
     pagination: {},
     isLoading: false,
     isError: false,
@@ -71,6 +72,16 @@ export const addStock = createAsyncThunk('items/addStock', async ({ itemId, quan
     }
 });
 
+export const getLowStockItems = createAsyncThunk('items/getLowStock', async (_, thunkAPI) => {
+    try {
+        const response = await axiosInstance.get('/dashboard/low-stock-items');
+        return response.data;
+    } catch (error) {
+
+        return thunkAPI.rejectWithValue('Failed to fetch low stock items.');
+    }
+});
+
 
 export const itemSlice = createSlice({
     name: 'items',
@@ -94,6 +105,9 @@ export const itemSlice = createSlice({
                 state.isLoading = false;
                 state.isError = true;
                 state.message = action.payload;
+            })
+            .addCase(getLowStockItems.fulfilled, (state, action) => {
+                state.lowStockItems = action.payload;
             });
     },
 });

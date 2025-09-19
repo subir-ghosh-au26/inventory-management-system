@@ -41,7 +41,7 @@ router.get('/stats', authenticateToken, isAdmin, async (req, res) => {
     }
 });
 
-// GET /api/dashboard/recent-activity
+// GET /api/dashboard/recent-activity (More focused on distributions)
 router.get('/recent-activity', authenticateToken, isAdmin, async (req, res) => {
     try {
         const query = `
@@ -49,6 +49,7 @@ router.get('/recent-activity', authenticateToken, isAdmin, async (req, res) => {
             FROM transactions t
             JOIN items i ON t.item_id = i.id
             JOIN users u ON t.user_id = u.id
+            WHERE t.transaction_type IN ('DISTRIBUTION', 'RETURN')
             ORDER BY t.created_at DESC
             LIMIT 7;
         `;
@@ -108,8 +109,8 @@ router.get('/low-stock-items', authenticateToken, isAdmin, async (req, res) => {
             SELECT id, name, sku, current_quantity, low_stock_threshold
             FROM items
             WHERE current_quantity <= low_stock_threshold
-            ORDER BY current_quantity ASC
-            LIMIT 10;
+            ORDER BY current_quantity ASC;
+            
         `;
         const result = await db.query(query);
         res.json(result.rows);

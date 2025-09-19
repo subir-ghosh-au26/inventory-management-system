@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../../config/db');
-const { authenticateToken } = require('../../middleware/auth.middleware');
+const { authenticateToken, isAdmin } = require('../../middleware/auth.middleware');
 
 // POST /api/transactions/stock-in - Add stock to an existing item (Admin only)
 router.post('/stock-in', authenticateToken, async (req, res) => {
@@ -56,14 +56,14 @@ router.post('/stock-in', authenticateToken, async (req, res) => {
     }
 });
 
-// GET /api/transactions - Get a log of all transactions
-router.get('/', authenticateToken, async (req, res) => {
-    const { page = 1, limit = 15, type, itemId } = req.query;
+// GET /api/transactions - Get a log of all transactions (with new search filter)
+router.get('/', authenticateToken, isAdmin, async (req, res) => {
+    const { page = 1, limit = 15, type, itemId, search } = req.query; // <-- Add 'search'
     const offset = (page - 1) * limit;
 
     let whereClauses = [];
-    const params = [limit, offset];
-    let paramIndex = 3;
+    const params = [];
+    let paramIndex = 1; // Start param index at 1 for the main query
 
     if (type) {
         whereClauses.push(`t.transaction_type = $${paramIndex++}`);
@@ -73,6 +73,12 @@ router.get('/', authenticateToken, async (req, res) => {
         whereClauses.push(`t.item_id = $${paramIndex++}`);
         params.push(itemId);
     }
+    // --- NEW SEARCH LOGIC ---
+    if (search) {
+        whereClauses.push(`i.name ILIKE $${paramIndex++}`);
+        params.push(`%${search}%`);
+    }
+    // -----------------------
 
     const whereString = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
@@ -87,13 +93,19 @@ router.get('/', authenticateToken, async (req, res) => {
             JOIN users u ON t.user_id = u.id
             ${whereString}
             ORDER BY t.created_at DESC
-            LIMIT $1 OFFSET $2;
+            LIMIT ${limit} OFFSET ${offset};
         `;
-        const countQuery = `SELECT COUNT(*) FROM transactions t ${whereString}`;
+
+        // Construct the count query with the same filters
+        const countQuery = `
+            SELECT COUNT(*) FROM transactions t
+            JOIN items i ON t.item_id = i.id
+            ${whereString}
+        `;
 
         const [logResult, countResult] = await Promise.all([
             db.query(query, params),
-            db.query(countQuery, params.slice(2)) // count query doesn't need limit/offset
+            db.query(countQuery, params)
         ]);
 
         res.json({
@@ -104,10 +116,10 @@ router.get('/', authenticateToken, async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Error fetching transaction log:", error);
         res.status(500).json({ message: 'Server error fetching transaction log.' });
     }
 });
-
 // --- HELPER FUNCTION FOR TRANSACTIONS ---
 const executeTransaction = async (res, { itemId, userId, quantity, type, details }) => {
     const quantityChange = type === 'DISTRIBUTION' ? -Math.abs(quantity) : Math.abs(quantity);
@@ -225,6 +237,29 @@ router.post('/return', authenticateToken, async (req, res) => {
         res.status(500).json({ message: 'Server error during return processing.' });
     } finally {
         client.release();
+    }
+});
+
+// GET /api/transactions/my-history - Get transactions for the logged-in user only
+router.get('/my-history', authenticateToken, async (req, res) => {
+    const userId = req.user.id; // Get user ID from the JWT token
+
+    try {
+        const query = `
+            SELECT 
+                t.id, t.transaction_type, t.quantity_change, t.created_at,
+                i.name as item_name
+            FROM transactions t
+            JOIN items i ON t.item_id = i.id
+            WHERE t.user_id = $1
+            ORDER BY t.created_at DESC
+            LIMIT 20;
+        `;
+        const result = await db.query(query, [userId]);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching user history:', error);
+        res.status(500).json({ message: 'Server error fetching history.' });
     }
 });
 

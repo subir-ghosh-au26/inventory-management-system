@@ -89,8 +89,6 @@ const DashboardPage = () => {
     return (
         <Box>
             <Typography variant="h4" gutterBottom>Dashboard Overview</Typography>
-
-            {/* --- 2. REVERT THE GRID SYNTAX (ADD `item` PROP) --- */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
                 <Grid item xs={12} sm={6} md={3}>
                     <StatCard title="Total Stock (All Items)" value={stats?.totalStockCount || 0} icon={<AllInboxIcon />} />
@@ -106,7 +104,7 @@ const DashboardPage = () => {
                 </Grid>
             </Grid>
 
-            <Grid container spacing={3}>
+            <Grid container spacing={2}>
                 {/* Left Column */}
                 <Grid item xs={12} lg={8}>
                     <Grid container spacing={3}>
@@ -119,7 +117,34 @@ const DashboardPage = () => {
                         <Grid item xs={12}>
                             <Paper sx={{ p: 2 }}>
                                 <Typography variant="h6" gutterBottom>Recent Distribution Activity</Typography>
-                                {/* ... Activity List JSX ... */}
+                                <List>
+                                    {activity.length > 0 ? activity.map((log, index) => (
+                                        <React.Fragment key={log.id}>
+                                            <ListItem>
+                                                <ListItemAvatar>{getActivityIcon(log)}</ListItemAvatar>
+                                                <ListItemText
+                                                    primary={
+                                                        <Typography component="span" variant="body1">
+                                                            <Box component="span" sx={{ fontWeight: 'bold' }}>{log.item_name}</Box>
+                                                            {` (${Math.abs(log.quantity_change)})`}
+                                                        </Typography>
+                                                    }
+                                                    secondary={
+                                                        <>
+                                                            <Typography component="span" variant="body2" color="text.secondary">
+                                                                {log.transaction_type === 'DISTRIBUTION' ? 'Distributed to ' : 'Returned from '}
+                                                                <Box component="span" sx={{ fontWeight: 'bold' }}>{log.details?.distributed_to || log.details?.returned_from || 'N/A'}</Box>
+                                                            </Typography>
+                                                            <br />
+                                                            {`by ${log.user_name} on ${new Date(log.created_at).toLocaleDateString()}`}
+                                                        </>
+                                                    }
+                                                />
+                                            </ListItem>
+                                            {index < activity.length - 1 && <Divider variant="inset" component="li" />}
+                                        </React.Fragment>
+                                    )) : <Typography sx={{ p: 2 }}>No recent distribution or return activity.</Typography>}
+                                </List>
                             </Paper>
                         </Grid>
                     </Grid>

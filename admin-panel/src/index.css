@@ -32,3 +32,12 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #888;
 }
+
+.login-background {
+  min-height: 100vh;
+  background-image: url("/login-bg.jpg");
+  background-position: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

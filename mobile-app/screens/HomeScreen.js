@@ -33,6 +33,15 @@ const HomeScreen = ({ navigation }) => {
             >
                 Scan to Process Return
             </Button>
+
+            <Button
+                icon="history"
+                mode="outlined"
+                onPress={() => navigation.navigate('History')}
+                style={styles.button}
+            >
+                My Activity History
+            </Button>
         </View>
     );
 };
@@ -42,11 +51,13 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
-        backgroundColor: '#f5f5f5',
+        padding: 10,
+        backgroundColor: '#ddb4b4ff',
     },
     title: {
         marginBottom: 40,
+        fontSize: 24,
+        fontWeight: 'bold',
     },
     button: {
         width: '100%',

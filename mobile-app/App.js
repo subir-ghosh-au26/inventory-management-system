@@ -3,10 +3,12 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { PaperProvider, ActivityIndicator, Button } from 'react-native-paper';
 import { AuthProvider, AuthContext } from './context/AuthContext';
+import Toast from 'react-native-toast-message';
 import LoginScreen from './screens/LoginScreen';
 import HomeScreen from './screens/HomeScreen';
 import ScannerScreen from './screens/ScannerScreen';
 import FormScreen from './screens/FormScreen';
+import HistoryScreen from './screens/HistoryScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -25,6 +27,11 @@ function AppStack() {
       />
       <Stack.Screen name="Scanner" component={ScannerScreen} options={{ title: 'Scan QR Code' }} />
       <Stack.Screen name="Form" component={FormScreen} />
+      <Stack.Screen
+        name="History"
+        component={HistoryScreen}
+        options={{ title: 'My History' }}
+      />
     </Stack.Navigator>
   );
 }
@@ -58,6 +65,7 @@ export default function App() {
     <AuthProvider>
       <PaperProvider>
         <AppNavigator />
+        <Toast />
       </PaperProvider>
     </AuthProvider>
   );

@@ -21,7 +21,7 @@ const LoginScreen = () => {
 
     return (
         <View style={styles.container}>
-            <Title style={styles.title}>Office Boy Login</Title>
+            <Title style={styles.title}>Inventory Management Login</Title>
             <TextInput
                 label="Username"
                 value={username}
@@ -50,7 +50,7 @@ const LoginScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, justifyContent: 'center', padding: 20 },
+    container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#ddb4b4ff' },
     title: { textAlign: 'center', marginBottom: 30 },
     input: { marginBottom: 15 },
     button: { marginTop: 20, paddingVertical: 8 },

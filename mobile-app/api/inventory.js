@@ -23,3 +23,8 @@ export const distributeItem = (data) => {
 export const returnItem = (data) => {
     return apiClient.post('/transactions/return', data);
 };
+
+//my-history
+export const getMyHistory = () => {
+    return apiClient.get('/transactions/my-history');
+};

@@ -3,9 +3,10 @@ import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import axiosInstance from '../api/axiosInstance';
 import { logout } from '../features/auth/authSlice';
+import { getLowStockItems } from '../features/items/itemSlice';
 import {
     AppBar, Toolbar, Typography, Button, Box, Drawer, List,
-    ListItem, ListItemButton, ListItemIcon, ListItemText, CssBaseline,
+    ListItem, ListItemButton, ListItemIcon, ListItemText, CssBaseline, Popover, Divider
 } from '@mui/material';
 import Footer from './Footer';
 import { useTheme } from '@mui/material/styles';
@@ -31,11 +32,31 @@ const Layout = () => {
     const [lowStockCount, setLowStockCount] = useState(0);
     const dispatch = useDispatch();
     const { user } = useSelector((state) => state.auth);
+    const { lowStockItems } = useSelector((state) => state.items);
+    const [anchorEl, setAnchorEl] = useState(null);
 
     const onLogout = () => {
         dispatch(logout());
         navigate('/login');
     };
+
+    const handleNotificationClick = (event) => {
+        setAnchorEl(event.currentTarget);
+    };
+
+    const handleNotificationClose = () => {
+        setAnchorEl(null);
+    };
+
+    const open = Boolean(anchorEl);
+    const id = open ? 'low-stock-popover' : undefined;
+
+
+    useEffect(() => {
+        dispatch(getLowStockItems());
+    }, [location, dispatch]);
+
+
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -68,8 +89,8 @@ const Layout = () => {
                     </Typography>
                     <Typography sx={{ mr: 2 }}>Welcome, {user?.fullName || 'Admin'}</Typography>
                     <Tooltip title="Low Stock Items">
-                        <IconButton>
-                            <Badge badgeContent={lowStockCount} color="error">
+                        <IconButton color="inherit" onClick={handleNotificationClick}>
+                            <Badge badgeContent={lowStockItems.length} color="error">
                                 <NotificationsIcon />
                             </Badge>
                         </IconButton>
@@ -80,6 +101,41 @@ const Layout = () => {
                     <Button color="inherit" onClick={onLogout} style={{ border: '2px solid black' }}>Logout</Button>
                 </Toolbar>
             </AppBar>
+
+            <Popover
+                id={id}
+                open={open}
+                anchorEl={anchorEl}
+                onClose={handleNotificationClose}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                }}
+            >
+                <Box sx={{ width: 360, p: 1 }}>
+                    <Typography sx={{ p: 1, fontWeight: 'bold' }}>Low Stock Items</Typography>
+                    <Divider />
+                    {lowStockItems.length > 0 ? (
+                        <List>
+                            {lowStockItems.map((item) => (
+                                <ListItem key={item.id}>
+                                    <ListItemText
+                                        primary={item.name}
+                                        secondary={`In Stock: ${item.current_quantity} (Threshold: ${item.low_stock_threshold})`}
+                                    />
+                                </ListItem>
+                            ))}
+                        </List>
+                    ) : (
+                        <Typography sx={{ p: 2 }}>No items are low on stock.</Typography>
+                    )}
+                </Box>
+            </Popover>
+
             <Drawer variant="permanent" sx={{ width: drawerWidth, flexShrink: 0, [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' }, }}>
                 <Toolbar />
                 <Box sx={{ overflow: 'auto' }}>
